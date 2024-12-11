@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from db import get_user_balance, add_balance, check_sign_in
+from db import get_user_balance, add_balance, check_sign_in, update_user_vip_level
 from datetime import datetime
 
 class BalanceWindow(QMainWindow):
@@ -144,6 +144,9 @@ class BalanceWindow(QMainWindow):
             if dialog.exec_() == dialog.Accepted:
                 amount = dialog.get_amount()
                 if add_balance(self.username, amount):
+                    # 更新用户VIP等级
+                    update_user_vip_level(self.username, amount)
+                    
                     QMessageBox.information(self, "成功", f"成功充值 ￥{amount:.2f}")
                     # 更新显示的余额
                     new_balance = get_user_balance(self.username)

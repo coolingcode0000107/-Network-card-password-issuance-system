@@ -8,6 +8,7 @@ from user_order_window import UserOrderWindow
 from purchase_dialog import PurchaseDialog
 from refund_window import RefundWindow
 from balance_window import BalanceWindow
+from user_vip_window import UserVIPWindow
 
 class UserMainWindow(QMainWindow):
     def __init__(self, username):
@@ -79,6 +80,11 @@ class UserMainWindow(QMainWindow):
             balance_action = QAction("余额管理", self)
             balance_action.triggered.connect(self.manage_balance)
             balance_menu.addAction(balance_action)
+            
+            # 添加等级查询选项
+            vip_action = QAction("等级查询", self)
+            vip_action.triggered.connect(self.check_vip_level)
+            balance_menu.addAction(vip_action)
 
             # 添加退出登录菜单
             logout_menu = menubar.addMenu("系统")
@@ -146,7 +152,7 @@ class UserMainWindow(QMainWindow):
         view_orders_action.triggered.connect(self.view_orders)
         order_menu.addAction(view_orders_action)
 
-        # 退款菜单
+        # 退款款菜单
         refund_menu = menubar.addMenu("退款")
         refund_action = QAction("退款申请", self)
         refund_action.triggered.connect(self.request_refund)
@@ -210,6 +216,14 @@ class UserMainWindow(QMainWindow):
             self.balance_window.show()
         except Exception as e:
             QMessageBox.critical(self, "错误", f"无法打开余额管理窗口: {e}")
+
+    def check_vip_level(self):
+        """打开等级查询窗口"""
+        try:
+            self.vip_window = UserVIPWindow(self.username)
+            self.vip_window.show()
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"无法打开等级查询窗口: {e}")
 
     def logout(self):
         """退出登录"""

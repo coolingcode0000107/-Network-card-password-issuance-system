@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QSpinBox, QPushButton, QMessageBox
 )
 from PyQt5.QtCore import Qt
-from db import purchase_product, get_user_balance
+from db import purchase_product, get_user_balance, get_user_discount
 
 class PurchaseDialog(QDialog):
     def __init__(self, parent, product_name, price, max_quantity):
@@ -28,6 +28,10 @@ class PurchaseDialog(QDialog):
         balance = get_user_balance(self.username)
         self.balance_label = QLabel(f"当前余额：￥{balance:.2f}")
         info_layout.addWidget(self.balance_label)
+
+        # 添加折扣显示标签
+        self.discount_label = QLabel()
+        info_layout.addWidget(self.discount_label)
         
         layout.addLayout(info_layout)
 
@@ -56,19 +60,37 @@ class PurchaseDialog(QDialog):
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
+        self.update_total()  # 初始化时更新总价和折扣显示
 
     def update_total(self):
-        quantity = self.quantity_spin.value()
-        total = self.price * quantity
-        self.total_label.setText(f"总价：￥{total:.2f}")
+        try:
+            quantity = self.quantity_spin.value()
+            discount = get_user_discount(self.username)
+            total = self.price * quantity * discount
+
+            # 更新折扣显示
+            if discount == 1.0:
+                self.discount_label.setText("当前无折扣优惠")
+            else:
+                self.discount_label.setText(f"已享受{(1-discount)*100:.0f}折优惠")
+
+            self.total_label.setText(f"总价：￥{total:.2f}")
+        except Exception as e:
+            print(f"计算总价失败: {e}")
+            self.total_label.setText("计算总价失败")
 
     def buy(self):
         try:
             quantity = self.quantity_spin.value()
+            # 计算折扣后的总价
+            discount = get_user_discount(self.username)
+            total_price = self.price * quantity * discount
+            
             success, message = purchase_product(
                 self.username, 
                 self.product_name, 
-                quantity
+                quantity,
+                total_price  # 传递折扣后的总价
             )
             
             if success:

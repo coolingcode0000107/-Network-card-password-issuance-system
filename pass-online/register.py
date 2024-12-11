@@ -153,25 +153,42 @@ class RegisterDialog(QDialog):
                 return
             cursor = conn.cursor()
 
-            # 检查用户名是否存在
-            cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s", (username,))
-            if cursor.fetchone()[0] > 0:
-                QMessageBox.warning(self, "警告", "该用户名已存在！")
-                return
+            # 开始事务
+            conn.start_transaction()
 
-            # 对密码进行加密
-            hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            try:
+                # 检查用户名是否存在
+                cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s", (username,))
+                if cursor.fetchone()[0] > 0:
+                    QMessageBox.warning(self, "警告", "该用户名已存在！")
+                    return
 
-            # 插入新用户
-            attar = 1 if is_admin else 2
-            cursor.execute(
-                "INSERT INTO users (username, password, ATTAR, Mail) VALUES (%s, %s, %s, %s)",
-                (username, hashed.decode('utf-8'), attar, email)
-            )
-            conn.commit()
+                # 对密码进行加密
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-            QMessageBox.information(self, "成功", "注册成功！")
-            self.close()
+                # 插入新用户
+                attar = 1 if is_admin else 2
+                cursor.execute(
+                    "INSERT INTO users (username, password, ATTAR, Mail) VALUES (%s, %s, %s, %s)",
+                    (username, hashed.decode('utf-8'), attar, email)
+                )
+
+                # 如果是普通用户，在userlevels表中插入初始数据
+                if not is_admin:
+                    cursor.execute("""
+                        INSERT INTO userlevels (Username, CumulativeRecharge, VIPLevel)
+                        VALUES (%s, 0.00, 0)
+                    """, (username,))
+
+                # 提交事务
+                conn.commit()
+                QMessageBox.information(self, "成功", "注册成功！")
+                self.close()
+
+            except Exception as e:
+                # 发生错误时回滚事务
+                conn.rollback()
+                raise e
 
         except Exception as e:
             QMessageBox.critical(self, "错误", f"注册失败: {e}")

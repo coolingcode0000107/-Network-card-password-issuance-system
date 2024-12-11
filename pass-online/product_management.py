@@ -6,7 +6,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from db import (
-    get_all_products, add_product_with_cards, update_product, delete_product
+    get_all_products, add_product_with_cards, update_product, delete_product,
+    get_connection, generate_unique_code
 )
 from user_management_window import UserManagementWindow
 from order_management_window import OrderManagementWindow
@@ -65,6 +66,11 @@ class ProductManagement(QMainWindow):
         view_users_action.triggered.connect(self.open_user_management)
         user_menu.addAction(view_users_action)
 
+        # 添加VIP等级管���选项
+        view_vip_action = QAction("用户等级", self)
+        view_vip_action.triggered.connect(self.open_vip_management)
+        user_menu.addAction(view_vip_action)
+
         # 订单查看菜单
         order_menu = menu_bar.addMenu("订单查看")
         view_orders_action = QAction("查看订单", self)
@@ -93,11 +99,17 @@ class ProductManagement(QMainWindow):
         product_menu.addAction(delete_product_action)
         product_menu.addAction(update_product_action)
 
-        # 添���退出登录菜单
+        # 添加退出登录菜单
         logout_menu = menu_bar.addMenu("系统")
         logout_action = QAction("退出登录", self)
         logout_action.triggered.connect(self.logout)
         logout_menu.addAction(logout_action)
+
+        # 添加收益菜单
+        revenue_menu = menu_bar.addMenu("商品收益")
+        view_revenue_action = QAction("查看收益", self)
+        view_revenue_action.triggered.connect(self.open_revenue_window)
+        revenue_menu.addAction(view_revenue_action)
 
     def load_products(self):
         """加载商品数据"""
@@ -171,10 +183,61 @@ class ProductManagement(QMainWindow):
             dialog = UpdateProductDialog(self, product_name, current_price, current_quantity)
             if dialog.exec_() == QDialog.Accepted:
                 new_price, new_quantity = dialog.get_data()
-                success = update_product(product_name, new_price, new_quantity)
-                if success:
+                
+                conn = get_connection()
+                if not conn:
+                    return
+                cursor = conn.cursor()
+                
+                try:
+                    # 开始事务
+                    conn.start_transaction()
+                    
+                    # 获取当前商品的库存数量
+                    cursor.execute("SELECT quantity FROM products WHERE name = %s", (product_name,))
+                    old_quantity = cursor.fetchone()[0]
+                    
+                    # 计算库存差异
+                    quantity_diff = new_quantity - old_quantity
+                    
+                    if quantity_diff > 0:
+                        # 需要增加卡密
+                        for _ in range(quantity_diff):
+                            cursor.execute(
+                                "INSERT INTO card_code (NAME, CODE) VALUES (%s, %s)",
+                                (product_name, generate_unique_code())
+                            )
+                    elif quantity_diff < 0:
+                        # 需要减少卡密
+                        cursor.execute("""
+                            DELETE FROM card_code 
+                            WHERE NAME = %s 
+                            AND CODE IN (
+                                SELECT CODE FROM (
+                                    SELECT CODE FROM card_code 
+                                    WHERE NAME = %s 
+                                    LIMIT %s
+                                ) AS temp
+                            )
+                        """, (product_name, product_name, abs(quantity_diff)))
+                    
+                    # 更新商品信息
+                    cursor.execute(
+                        "UPDATE products SET price = %s, quantity = %s WHERE name = %s",
+                        (new_price, new_quantity, product_name)
+                    )
+                    
+                    conn.commit()
                     QMessageBox.information(self, "成功", "商品更新成功！")
                     self.load_products()
+                    
+                except Exception as e:
+                    conn.rollback()
+                    raise e
+                finally:
+                    cursor.close()
+                    conn.close()
+                
         except Exception as e:
             QMessageBox.critical(self, "错误", f"更新商品失败: {e}")
 
@@ -257,6 +320,24 @@ class ProductManagement(QMainWindow):
         except Exception as e:
             print(f"退出登录时发生错误: {str(e)}")  # 添加调试信息
             QMessageBox.critical(self, "错误", f"退出登录失败: {e}")
+
+    def open_vip_management(self):
+        """打开VIP等级管理窗口"""
+        try:
+            from vip_level_window import VIPLevelWindow
+            self.vip_level_window = VIPLevelWindow()
+            self.vip_level_window.show()
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"无法打开VIP等级管理窗口: {e}")
+
+    def open_revenue_window(self):
+        """打开收益查看窗口"""
+        try:
+            from revenue_window import RevenueWindow
+            self.revenue_window = RevenueWindow()
+            self.revenue_window.show()
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"无法打开收益窗口: {e}")
 
 class AddProductDialog(QDialog):
     def __init__(self, parent=None):
@@ -370,7 +451,7 @@ class UpdateProductDialog(QDialog):
         quantity_layout.addWidget(self.quantity_input)
         layout.addLayout(quantity_layout)
 
-        # ���钮
+        # 按钮
         button_layout = QHBoxLayout()
         update_button = QPushButton("更新")
         cancel_button = QPushButton("取消")

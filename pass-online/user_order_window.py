@@ -13,7 +13,7 @@ class UserOrderWindow(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("我的订单")
-        self.setGeometry(100, 100, 900, 600)
+        self.setGeometry(100, 100, 1100, 600)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -21,18 +21,22 @@ class UserOrderWindow(QMainWindow):
 
         # 创建表格
         self.table = QTableWidget()
-        self.table.setColumnCount(5)  # 包括激活按钮列
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "购买时间", "商品名称", "卡密", "状态", "操作"
+            "买家", "购买时间", "商品名称", "卡密", 
+            "激活状态", "交易金额", "操作"
         ])
 
         # 设置表格列宽
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
         header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(6, QHeaderView.Fixed)
+        self.table.setColumnWidth(6, 80)
 
         # 设置表格样式
         self.table.setAlternatingRowColors(True)
@@ -48,40 +52,62 @@ class UserOrderWindow(QMainWindow):
             self.table.setRowCount(len(orders))
 
             for row, order in enumerate(orders):
+                # 买家
+                buyer_item = QTableWidgetItem(order[0])
+                buyer_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 0, buyer_item)
+
                 # 购买时间
-                time_str = order[0].strftime("%Y-%m-%d %H:%M:%S")
-                self.table.setItem(row, 0, QTableWidgetItem(time_str))
+                purchase_time = order[1]
+                if isinstance(purchase_time, str):
+                    time_str = purchase_time
+                else:
+                    time_str = purchase_time.strftime("%Y-%m-%d %H:%M:%S")
+                time_item = QTableWidgetItem(time_str)
+                time_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 1, time_item)
 
                 # 商品名称
-                self.table.setItem(row, 1, QTableWidgetItem(order[1]))
+                product_item = QTableWidgetItem(order[2])
+                product_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 2, product_item)
 
                 # 卡密
-                self.table.setItem(row, 2, QTableWidgetItem(order[2]))
+                code_item = QTableWidgetItem(order[3])
+                code_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 3, code_item)
 
-                # 状态
-                status_item = QTableWidgetItem(order[3])
-                if order[3] == '已激活':
+                # 激活状态
+                status_item = QTableWidgetItem(order[4])
+                status_item.setTextAlignment(Qt.AlignCenter)
+                if order[4] == '已激活':
                     status_item.setForeground(Qt.green)
-                elif order[3] == '失效':
+                elif order[4] == '失效':
                     status_item.setForeground(Qt.red)
-                self.table.setItem(row, 3, status_item)
+                self.table.setItem(row, 4, status_item)
 
-                # 激活按钮
-                if order[3] == '未激活':
+                # 交易金额
+                amount_item = QTableWidgetItem(f"￥{float(order[5]):.2f}")
+                amount_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.table.setItem(row, 5, amount_item)
+
+                # 添加激活按钮列
+                if order[4] == '未激活':
                     activate_btn = QPushButton("激活")
                     activate_btn.clicked.connect(
-                        lambda checked, row=row: self.activate_order(row)
+                        lambda checked, r=row, c=order[3]: self.activate_order(r, c)
                     )
-                    self.table.setCellWidget(row, 4, activate_btn)
+                    self.table.setCellWidget(row, 6, activate_btn)
                 else:
-                    self.table.setItem(row, 4, QTableWidgetItem(""))
+                    empty_item = QTableWidgetItem("")
+                    self.table.setItem(row, 6, empty_item)
 
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载订单数据失败: {e}")
 
-    def activate_order(self, row):
+    def activate_order(self, row, code):
+        """激活卡密"""
         try:
-            code = self.table.item(row, 2).text()
             if activate_code(self.username, code):
                 QMessageBox.information(self, "成功", "卡密激活成功！")
                 self.load_orders()  # 刷新订单列表

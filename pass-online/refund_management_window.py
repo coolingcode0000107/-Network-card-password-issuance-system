@@ -75,11 +75,14 @@ class RefundManagementWindow(QMainWindow):
 
     def process_refund(self, row, approve):
         try:
-            username = self.table.item(row, 0).text()
-            code = self.table.item(row, 2).text()
-            amount = float(self.table.item(row, 3).text())
+            username = self.table.item(row, 0).text()  # 用户名
+            product_name = self.table.item(row, 1).text()  # 商品名称
+            refund_code = self.table.item(row, 2).text()  # 卡密
+            refund_amount = float(self.table.item(row, 3).text().replace('￥', ''))  # 退款金额
             
+            status = '已同意' if approve else '已拒绝'
             action = "同意" if approve else "拒绝"
+            
             reply = QMessageBox.question(
                 self, 
                 f"确认{action}", 
@@ -88,11 +91,10 @@ class RefundManagementWindow(QMainWindow):
             )
             
             if reply == QMessageBox.Yes:
-                if process_refund(username, code, approve, amount):
+                if process_refund(refund_code, status):
                     QMessageBox.information(self, "成功", f"已{action}退款申请！")
                     self.load_refunds()  # 刷新列表
                 else:
                     QMessageBox.warning(self, "失败", f"{action}退款申请失败！")
-                    
         except Exception as e:
             QMessageBox.critical(self, "错误", f"处理退款申请失败: {e}") 

@@ -14,7 +14,7 @@ class UserManagementWindow(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("用户管理")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 600)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -22,16 +22,17 @@ class UserManagementWindow(QMainWindow):
 
         # 创建表格
         self.table = QTableWidget()
-        self.table.setColumnCount(3)  # 用户名, 权限, 操作
+        self.table.setColumnCount(4)  # 增加到4列：用户名、邮箱、权限、操作
         self.table.setHorizontalHeaderLabels([
-            "用户名", "权限", "操作"
+            "用户名", "邮箱", "权限", "操作"
         ])
 
         # 设置表格列宽
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)  # 用户名列自适应内容
+        header.setSectionResizeMode(1, QHeaderView.Stretch)  # 邮箱列可伸缩
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
 
         # 设置表格样式
         self.table.setAlternatingRowColors(True)
@@ -47,10 +48,16 @@ class UserManagementWindow(QMainWindow):
             self.table.setRowCount(len(users))
 
             for row, user in enumerate(users):
-                # 用户名
-                username_item = QTableWidgetItem(user[1])  # user[1]是用户名
+                # 用户名 (user[1])
+                username_item = QTableWidgetItem(user[1])
                 username_item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row, 0, username_item)
+
+                # 邮箱 (user[4])
+                email = user[4] if user[4] else "未设置"
+                email_item = QTableWidgetItem(email)
+                email_item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(row, 1, email_item)
 
                 # 权限（使用下拉框）
                 attar_combo = QComboBox()
@@ -59,7 +66,7 @@ class UserManagementWindow(QMainWindow):
                 attar_combo.currentIndexChanged.connect(
                     lambda idx, r=row: self.update_user_attar(r, idx)
                 )
-                self.table.setCellWidget(row, 1, attar_combo)
+                self.table.setCellWidget(row, 2, attar_combo)
 
                 # 删除按钮
                 btn_widget = QWidget()
@@ -68,7 +75,7 @@ class UserManagementWindow(QMainWindow):
                 delete_btn.clicked.connect(lambda _, r=row: self.delete_user(r))
                 btn_layout.addWidget(delete_btn)
                 btn_layout.setContentsMargins(5, 0, 5, 0)
-                self.table.setCellWidget(row, 2, btn_widget)
+                self.table.setCellWidget(row, 3, btn_widget)
 
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载用户数据失败: {e}")
